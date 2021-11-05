@@ -7,6 +7,10 @@ Arbitrary Docstring
 import numpy as np
 from shapely import geometry, affinity
 
+from river import River
+from ships import Ships
+import policies
+
 class Ships:
 
     def __init__(self, 
@@ -74,8 +78,8 @@ class Ships:
         # Heading angle in Radians
         self.heading_angle = np.zeros(self.num_ships)
 
-        # Three points for circle calculation
-        self.heading_radius_calc = np.zeros((2,self.num_ships))
+        # Three points for circle calculation. These are num_ships' 2x3 matirces
+        self.heading_radius_calc = np.zeros((self.num_ships,2,3))
 
         # List of objects holding the dimensions and alignment of each ship
         self.heading_box = [self.create_box(ID) for ID in range(self.num_ships)]
@@ -160,8 +164,42 @@ class Ships:
     def compute_heading_from_cf(self, ID):
 
         current_points = self.heading_radius_calc[ID]
+        added_coords = np.c_[current_points, [self.x_utm,self.y_utm]]
+
+        if current_points.all() == 0:
+            heading_angle = 0.
+
+        else:
+            # Remove the first of the three points in order to achieve a rolling window
+            added_coords = np.delete(added_coords,0,1)
+            r, xy = self.fit_circle(added_coords)
+            heading_angle = np.arcsin(self.length[ID] * (self.heading_cf[ID] - 0.5) / r)
+
+        # Calculate whether the center_point is
+        # on the right or left of the line spanned by two points of
+        # our added_coords list. This is most easily achieved using a cross product
+        if np.cross(added_coords[1] - added_coords[0], xy - added_coords[0]) > 0:
+            # Point is on the left
+            pass
 
 
-#river = River()
-#ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)
-#ships.find_next_ship(0,3,0)
+
+    # Find the unique circle inscribed by three points using the inscribed angle theorem
+    @staticmethod
+    def fit_circle(points: np.array):
+
+        x = points[0,:]
+        y = points[1,:]
+
+        x_center = (x[0]**2 - x[1]**2 + y[0]**2 - y[1]**2) / 2*(x[0] - x[1])
+        y_center = (y[0]**2 - y[2]**2 + x[0]**2 - x[2]**2) / 2*(y[0] - y[2])
+
+        radius = np.sqrt((x[0] - x_center)**2 + (y[0] - y_center)**2)
+
+        return radius, (x_center,y_center)
+
+
+river = River()
+ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)
+lat = policies.LatConPol(30,1)
+f = lat.compute_obs(ships, river,2)

@@ -4,9 +4,6 @@ In here, the lateral and longitudinal contol policies are definied
 
 """
 
-from ships import Ships
-from river import River
-
 import numpy as np
 
 class LatConPol:
@@ -560,8 +557,3 @@ class LonConPol:
         MASS = MS * (1/(N - 1) + 0.1)
 
         return MASS
-
-river = River()
-ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)
-lat = LatConPol(0)
-f = lat.compute_obs(ships, river,2)

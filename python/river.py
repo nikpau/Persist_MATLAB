@@ -220,11 +220,3 @@ class River:
         lower_points[:,1] = (lower_points[:,1]) * self.BASEPOINT_DIST
 
         return (lower_points, upper_points)
-
-
-#river = River()
-#ships = Ships(river=river, num_ships=2, ship_lengths= [100,100], ship_widths= [10,10],ship_mass=[1e5]*2,y_location=[150]*2)
-#river.get_water_depth(ships)
-#river.get_river_profile(ships)
-#river.detect_free_space(0,ships, 4500,7)
-# river.get_utm_position(39950,145)

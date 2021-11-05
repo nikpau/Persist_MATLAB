@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import onnx
-import onnx2pytorch
+from onnx import numpy_helper
 
 
 class LongitudinalNet(nn.Module):
@@ -70,15 +70,14 @@ def _init_from_onnx(input_net, path_to_onnx):
     i = 0
     while True:
         try:
-            x = onnx.numpy_helper.to_array(raw_weights[i])
+            x = numpy_helper.to_array(raw_weights[i])
+            x = np.squeeze(x)
             wb.append(x)
             i += 1
         except:
             break
 
-    for idx, params in enumerate(input_net.paramerters()):
-        params.data = nn.parameter.Parameter(wb[idx])
+    for idx, params in enumerate(input_net.parameters()):
+        params.data = nn.parameter.Parameter(torch.tensor(wb[idx]))
 
     return input_net
-
-

@@ -189,6 +189,12 @@ class River:
             lower_poly[i] = non_zero_indices[0][max_index]
             upper_poly[i] = non_zero_indices[0][max_index + 1]
 
+        # From here on the results of the matlab implementation differ from this one due to zero indexing.
+        # The linspacer starts at one as it does in the original file River.m:218.
+        # However, the first one-index is used to index the first element of the upper_poly vector in l. 203.
+        # In matlab this works due to one-indexing. In python it does not. Therefore the first element in 
+        # the upper_poly array is omitted. If the linspacer would start at zero, the breakpoints of the spacer
+        # would differ from the original. Difference is minor, therefore no further adjustments are made.
         blocks_upper = np.round(np.linspace(1,len(upper_poly),num_points + 1)).astype(int)
         blocks_lower = np.round(np.linspace(1,len(upper_poly),num_points + 1)).astype(int)
 
@@ -206,7 +212,7 @@ class River:
 
             lower_max = np.max(current_lower_range)
             lower_ind = np.argmax(current_lower_range)
-            lower_points[i,:] = lower_ind + blocks_upper[i], lower_max
+            lower_points[i,:] = lower_ind + blocks_lower[i], lower_max
 
         upper_points[:,0] = (upper_points[:,0] + start -1) * self.BASEPOINT_DIST
         upper_points[:,1] = (upper_points[:,1]) * self.BASEPOINT_DIST

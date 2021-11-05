@@ -159,7 +159,8 @@ class Ships:
     # We compute some heading based on a cf value?
     def compute_heading_from_cf(self, ID):
 
-        raise NotImplementedError()
+        current_points = self.heading_radius_calc[ID]
+
 
 #river = River()
 #ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)

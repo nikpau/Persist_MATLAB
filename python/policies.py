@@ -49,12 +49,17 @@ class LatConPol:
         (self.base_points_lower,self.base_points_upper) = river.detect_free_space(ID, ships, self.look_ahead_dist, self.n_breakpoints)
 
         # Calculate time to collision vector for the upper and lower coast line
+
+        # TODO For some reason the second column is an exact copy of the first one. Why?
         self.TTC_base_l = direction * (self.base_points_lower[:,0] - ships.x_location[ID]) / np.abs(ships.vx[ID])
-        self.TTC_base_l = np.tile(self.TTC_base_l, (2,1))
-        self.y_base_l = self.base_points_lower[:,1]
+        self.TTC_base_l = np.transpose(np.tile(self.TTC_base_l, (2,1)))
+        self.y_base_l = self.base_points_lower[:,1] - ships.y_location[ID]
+        self.y_base_l = np.transpose(np.tile(self.y_base_l, (2,1)))
 
         self.TTC_base_u = direction * (self.base_points_upper[:,0] - ships.x_location[ID]) / np.abs(ships.vx[ID])
-        self.y_base_u = self.base_points_upper[:,1]
+        self.TTC_base_u = np.transpose(np.tile(self.TTC_base_u, (2,1)))
+        self.y_base_u = self.base_points_upper[:,1] - ships.y_location[ID]
+        self.y_base_u = np.transpose(np.tile(self.y_base_u, (2,1)))
 
         # Ship ahead observation
         overtake_range_ahead = np.arange(start=0 ,stop=ships.overtaking_level[ID])
@@ -295,11 +300,13 @@ class LatConPol:
         # Sort the ttc and position vector in ascending or descending order depending on
         # the direction of the vessel
         if dir == "upper":
-            pos = pos[pos[:,0].argsort()] # Sort in ascending order based on the first col
-            ttc = ttc[ttc[:,0].argsort()]
+            sort_ind = pos[:,0].argsort()
+            pos = pos[sort_ind] # Sort in ascending order based on the first col
+            ttc = ttc[sort_ind]
         else:
-            pos = pos[pos[:,0].argsort()[::-1]] # Sort in descending order based on the first col
-            ttc = ttc[ttc[:,0].argsort()[::-1]]
+            sort_ind = pos[:,0].argsort()[::-1]
+            pos = pos[sort_ind] # Sort in descending order based on the first col
+            ttc = ttc[sort_ind]
 
         to_del = np.zeros((pos.shape[0],2))
 
@@ -327,20 +334,25 @@ class LatConPol:
             
         ttc = np.concatenate([ttc[:,0], ttc[:,1]])
         pos = np.concatenate([pos[:,0], pos[:,1]])
-        to_del = np.concatenate([to_del[:,0], to_del[:,1]])
+        to_del = np.concatenate([to_del[:,0], to_del[:,1]]).astype(bool)
 
         # Delete all entries form the ttc and pos vectors according to the deletion vector
-        ttc = [value for (value, bool) in zip(ttc,to_del) if bool]
-        pos = [value for (value, bool) in zip(pos,to_del) if bool]
+        ttc = np.array([value for (value, bool) in zip(ttc,to_del) if not bool])
+        pos = np.array([value for (value, bool) in zip(pos,to_del) if not bool])
             
         # Sort both vectors based on the ttc vector in ascending order
         sort_indices = np.argsort(ttc)
         ttc = ttc[sort_indices]
         pos = pos[sort_indices]
 
-        # Delete all double entries
-        ttc = np.unique(ttc)
-        pos = np.unique(pos)
+        # Find all entries that double in both arrays
+        # In the next step, pos and ttc are logical and'ed to find indices where both differences
+        # equal zero. Then one False value is appended in order to pad to the same 
+        # length as the original array
+        zero_diffs = np.logical_and(np.diff(ttc) == 0,np.diff(pos) == 0)
+        zero_diffs = np.append(zero_diffs,False)
+        ttc = ttc[zero_diffs]
+        pos = pos[zero_diffs]
 
         while ttc[1] < 0:
             pos = np.delete(pos,0)
@@ -348,8 +360,8 @@ class LatConPol:
 
         if len(ttc) < n_entries:
             while len(ttc) < n_entries:
-                np.append(ttc, self.upper_ttc_bound)
-                np.append(pos, 0)
+                ttc = np.append(ttc, self.upper_ttc_bound)
+                pos = np.append(pos, 0)
         
         pos = pos - self.safety_dist if dir == "upper" else pos + self.safety_dist
 

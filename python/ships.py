@@ -10,6 +10,7 @@ from shapely import geometry, affinity
 from river import River
 from ships import Ships
 import policies
+import nets
 
 class Ships:
 
@@ -68,6 +69,7 @@ class Ships:
 
         # Set power per ship
         self.power = np.zeros(self.num_ships)
+        self.max_power = 1E6
 
         # Squat
         self.squat = np.ones(self.num_ships)
@@ -89,10 +91,26 @@ class Ships:
         self.y_utm = np.zeros(self.num_ships) 
 
         # Vectors for the lateral and longitudinal control policy
-        self.lat_con_pol = []
-        self.long_con_pol = []
+        self.lat_con_pol = [policies.LatConPol(ID) for ID in self.num_ships]
+        self.long_con_pol = [policies.LonConPol(ID,self,river) for ID in self.num_ships]
+
+        lat_net_path = "python/onnx_nets/lateralNet.onnx"
+        long_net_path = "python/onnx_nets/longitudinalNet.onnx"
+
+        self.lat_nets = []
+        self.long_nets = []
+
+        for i in range(self.num_ships):
+            lat_net = nets.LateralNet(30,1)
+            lat_net = nets._init_from_onnx(lat_net,lat_net_path)
+            self.lat_nets.append(lat_net)
+
+            long_net = nets.LongitudinalNet(7,1)
+            long_net = nets._init_from_onnx(long_net,long_net_path)
+            self.long_nets.append(long_net)
 
         # TODO: Init control policies for each ship (Ships.m:105-108)
+
 
     # Create a Polygon for each ship
     def create_box(self, ID):
@@ -180,8 +198,50 @@ class Ships:
         # our added_coords list. This is most easily achieved using a cross product
         if np.cross(added_coords[1] - added_coords[0], xy - added_coords[0]) > 0:
             # Point is on the left
-            pass
+            heading_angle = -heading_angle
+        
+        self.heading_angle[ID] = self.direction[ID] * heading_angle
+        self.heading_box[ID] = self.create_box(ID)
+        self.heading_radius_calc[ID] = added_coords
 
+    def simulate_timestep(self, ID, river, dT, water_depth, river_profile, stream_vel):
+
+        lat_obs = self.lat_con_pol[ID].compute_obs(self,river,3)
+        long_obs = self.long_con_pol[ID].compute_obs(water_depth,stream_vel,river_profile)
+
+        # Longitudinal Simulation
+        long_action = self.long_nets[ID](long_obs)
+        self.power[ID] = np.maximum(0,self.max_power * long_action)
+
+        acc, squat, cf = self.long_con_pol[ID].compute_acc(water_depth,stream_vel,river_profile, dT)
+
+        self.ax[ID] = self.direction[ID] * acc
+        self.squat[ID] = squat
+        self.heading_cf[ID] = cf
+
+        new_vx = self.vx[ID] + self.ax[ID] * dT
+        self.x_location[ID] = self.x_location[ID] + 0.5* (self.vx[ID] + new_vx)
+        self.vx[ID] = new_vx
+
+        # Lateral simulation
+        lat_action = self.lat_nets[ID](lat_obs)
+        self.ay[ID] = lat_action * self.lat_con_pol[ID].upper_acc_bound
+
+        new_vy = self.vy[ID] + self.ay[ID] * dT
+
+        if np.abs(new_vy) > self.lat_con_pol[ID].upper_speed_bound:
+            new_vy = np.sign(new_vy) * self.lat_con_pol[ID].upper_speed_bound
+        
+        if np.abs(new_vy) > np.abs(self.vx[ID] / 10):
+           new_vy = np.sign(new_vy) * np.abs(self.vx[ID] / 10)
+
+        self.y_location[ID] = self.y_location[ID] + 0.5* (self.vy[ID] + new_vy) * dT
+        self.vy [ID] = new_vy
+
+        # Transform coords to UTM plane
+        self.x_utm[ID], self.y_utm[ID] = river.get_utm_position(self.x_location[ID],self.y_location[ID])
+
+        self.compute_heading_from_cf(ID)
 
 
     # Find the unique circle inscribed by three points using the inscribed angle theorem

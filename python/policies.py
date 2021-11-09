@@ -389,9 +389,6 @@ class LonConPol:
         self.h_scale = 3
 
 
-        # Receive the current stream velocities for each vessel
-        self.obs_stream_vel = river.mean_stream_vel(ships)
-
         # TODO What is this?
         self.wid = 0
 
@@ -401,11 +398,11 @@ class LonConPol:
     def compute_obs(self, water_depth, stream_vel, river_profile):
 
         # Get the ID and the distance of the closest ship ahead
-        ahead_ID, self.dist_ship_ahead = self.ships.find_ship(self.id, 1, self.ships.overtake_leve[self.id], mode = "ahead")
+        ahead_ID, self.dist_ship_ahead = self.ships.find_ships(self.id, 1, self.ships.overtaking_level[self.id], mode = "ahead")
 
         # Get vertical velocity for the ship with minimal distance ahead.
         # If there is none in range, set the speed to the maximum possible value
-        if ahead_ID is not float("Inf"):
+        if not np.isinf(ahead_ID[0]):
             v_ahead = self.ships.vx[ahead_ID]
             self.dist_ship_ahead = self.dist_ship_ahead - self.ships.length[self.id]/2 - self.ships.length[ahead_ID]/2
         
@@ -427,31 +424,36 @@ class LonConPol:
                 self.dist_ship_ahead / self.max_dist_to_consider,
                 self.ships.direction[self.id] * (v_ahead - self.ships.vx[self.id]) / self.upper_speed_bound,
                 self.ships.power[self.id] / self.max_power,
-                self.obs_stream_vel / self.v_str_scale,
-                (self.river_profile - self.a_mean) / self.a_scale,
-                (self.water_depth - self.h_mean) / self.h_scale
+                self.obs_stream_vel[self.id] / self.v_str_scale,
+                (self.river_profile[self.id] - self.a_mean) / self.a_scale,
+                (self.water_depth[self.id] - self.h_mean) / self.h_scale
             ]
         )
+        return self.obs
 
     # TODO What is ACC? Acceleration? Anyway, it is calculated here:
     def compute_acc(self, water_depth, stream_vel, river_profile, TIMESTEP):
 
-        prev_stream_vel = self.obs_stream_vel
+        curr_stream_vel = stream_vel[self.id]
+        
+        # Infer the stream velocity of the vessel at the next timestep.
+        # Therefore, stream velocity is calculated for the coordinates the vessel
+        # would arrive if it continues its current trajectory with constant velocity
+        inferred_stream_vel = self.infer_stream_vel(TIMESTEP)
 
         # Import river properties
-        self.obs_stream_vel = stream_vel
         self.river_profile = river_profile
         self.water_depth = water_depth
 
         # Set dynamic variables
-        h = self.water_depth
-        A = self.river_profile
+        h = self.water_depth[self.id]
+        A = self.river_profile[self.id]
 
         # absolute x-velocity of vessel
         v = np.abs(self.ships.vx[self.id])
         
         # Velocity relative to the river
-        v_rel = v - self.obs_stream_vel
+        v_rel = v - curr_stream_vel
 
         # Constants for calculation
         RHO = 1000 # Water density
@@ -489,9 +491,9 @@ class LonConPol:
 
         W2 = 0.5 * CW * CK * RHO * lambda_s * BS * LS * (1 + 2 * TS / BS) * GAMMA * (v_rel - V_REFF)
 
-        IDIR = -np.sign(self.obs_stream_vel - V_REFF)
+        IDIR = -np.sign(curr_stream_vel - V_REFF)
         W3 = 0.023 * IDIR * CSTR * RHO * (KS * new_squat / (4 * h))**(1/3) * LS * BS * (TS / h) \
-            * (1 + 2 * TS / BS) * GAMMA * (self.obs_stream_vel - V_REFF)**2
+            * (1 + 2 * TS / BS) * GAMMA * (curr_stream_vel- V_REFF)**2
 
         W4 = np.sign(-v_rel) * MS * 9.81 * ALPHA
 
@@ -502,13 +504,14 @@ class LonConPol:
         thrust_Factor_c = 0.8;
 
         # Compute thrust of vessel
-        thrust = thrust_Factor_c * (thrust_Factor_a * self.ships.power[self.id]) / (self.ships.power[self.id]**(1/3) + thrust_Factor_b * v_rel)
+        thrust = thrust_Factor_c * (thrust_Factor_a * self.ships.power[self.id]) / \
+            (self.ships.power[self.id]**(1/3) + thrust_Factor_b * v_rel)
 
         a_next = 1000
         a_prev = 1000
 
         # Compute acceleration
-        dv_str_dt = (self.obs_stream_vel - prev_stream_vel) / TIMESTEP
+        dv_str_dt = (inferred_stream_vel - curr_stream_vel) / TIMESTEP
 
         mh_prev = self.hydrodyn_mass(a_prev, AS, MS)
         mh_next= self.hydrodyn_mass(a_next, AS, MS)
@@ -532,7 +535,7 @@ class LonConPol:
 
         cd_0 = 0.22 * (LS / (CF_GAMMA * BS))**BETA_C
         cd_max = cd_0 + (C_AST -cd_0) * (TSAVG / h)**BETA
-        vStr_vSdW = self.obs_stream_vel / v_rel
+        vStr_vSdW = curr_stream_vel / v_rel
         F1 = (1.0 + 2.0 * vStr_vSdW) + F_V2 * (vStr_vSdW)**2
 
         F11 = (TSAVG / h) / (1.0 - (TSAVG / h))
@@ -541,7 +544,7 @@ class LonConPol:
         F4 = (TSAVG * BS + 0.2 * TSAVG**2) / (TSAVG * BS)
         CMHY = F4 * (F3 * F2 + F11)
 
-        k_prime = 1.0 - (3.4^(-0.22 * (LS / BS - 1.0)))
+        k_prime = 1.0 - (3.4**(-0.22 * (LS / BS - 1.0)))
         CF = 0.5 + C_I * (BS / LS) + (2.0 / cd_max * BS / LS * CF_GAMMA / CF_GAMMA_L * C_KORR * F1 + 1.0 / 6.0) /\
              (CF_GAMMA / CF_GAMMA_L * BS / LS * CMHY / cd_max * 4 * k_prime + 1.0)
 
@@ -557,3 +560,17 @@ class LonConPol:
         MASS = MS * (1/(N - 1) + 0.1)
 
         return MASS
+    
+    # Infer the stram velocity at the point the vessel would be, assuming constant motion. 
+    # Only the midpoint-coordinates are used.
+    def infer_stream_vel(self, dT):
+
+        # This function does not consider any length of the ship whatsover. 
+        # But since this is a guess anyways, it might not be that bad.
+        new_y = np.round((self.ships.y_location[self.id]\
+             + self.ships.vy[self.id]/ dT) / self.river.BASEPOINT_DIST).astype(int)
+        new_x = np.round((self.ships.x_location[self.id]\
+             + self.ships.vx[self.id]/ dT) / self.river.BASEPOINT_DIST).astype(int)
+
+        return self.river.stream_vel[new_x,new_y]
+

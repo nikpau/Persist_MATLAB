@@ -87,15 +87,19 @@ class River:
     # This means the function only gets called once per timestep and not once per ship per timestep
     def mean_stream_vel(self, ships):
 
-        min_y_log = np.round(ships.y_location - ships.eff_width / 2 / self.BASEPOINT_DIST)
-        max_y_log = np.round(ships.y_location + ships.eff_width / 2 / self.BASEPOINT_DIST)
+        min_y_log = np.round((ships.y_location - ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int)
+        max_y_log = np.round((ships.y_location + ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int)
 
-        min_x_log = np.round(ships.x_location - ships.eff_width / 2 / self.BASEPOINT_DIST) + 10
-        max_x_log = np.round(ships.x_location + ships.eff_width / 2 / self.BASEPOINT_DIST) + 10
+        min_x_log = np.round((ships.x_location - ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int) + 10
+        max_x_log = np.round((ships.x_location + ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int) + 10
 
-        v_steam = ships.direction * np.mean(self.stream_vel[min_y_log:max_y_log, min_x_log:max_x_log])
+        # Define empty array for all mean stream velocities to be written into
+        v_stream = np.zeros(len(min_y_log))
+        for i in range(len(v_stream)):
+            v_stream[i] = ships.direction[i] *\
+                 np.mean(self.stream_vel[min_x_log[i]:max_x_log[i]+1, min_y_log[i]:max_y_log[i]+1])
 
-        return v_steam
+        return v_stream
 
     # Vectorized function for receiving the current water depth per vessel (orig: River.m:169)
     def get_water_depth(self,ships):
@@ -109,7 +113,7 @@ class River:
         depth = np.zeros(ships.num_ships)
 
         for i in range(len(depth)):
-            depth[i] = np.mean(np.mean(self.water_depth[min_x_log[i]:max_x_log[i],min_y_log[i]:max_y_log[i]]))
+            depth[i] = np.mean(np.mean(self.water_depth[min_x_log[i]:max_x_log[i]+1,min_y_log[i]:max_y_log[i]+1]))
 
         return depth
 
@@ -122,7 +126,7 @@ class River:
         river_profile = np.zeros(ships.num_ships)
 
         for i in range(len(river_profile)):
-            river_profile[i] = np.mean(np.trapz(self.water_depth[min_x_log[i]:max_x_log[i],:])) * self.BASEPOINT_DIST
+            river_profile[i] = np.mean(np.trapz(self.water_depth[min_x_log[i]:max_x_log[i]+1,:])) * self.BASEPOINT_DIST
 
         return river_profile
 

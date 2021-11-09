@@ -6,9 +6,9 @@ Arbitrary Docstring
 
 import numpy as np
 from shapely import geometry, affinity
+import torch
 
 from river import River
-from ships import Ships
 import policies
 import nets
 
@@ -91,8 +91,8 @@ class Ships:
         self.y_utm = np.zeros(self.num_ships) 
 
         # Vectors for the lateral and longitudinal control policy
-        self.lat_con_pol = [policies.LatConPol(ID) for ID in self.num_ships]
-        self.long_con_pol = [policies.LonConPol(ID,self,river) for ID in self.num_ships]
+        self.lat_con_pol = [policies.LatConPol(ID) for ID in self.ship_id]
+        self.long_con_pol = [policies.LonConPol(ID,self,river) for ID in self.ship_id]
 
         lat_net_path = "python/onnx_nets/lateralNet.onnx"
         long_net_path = "python/onnx_nets/longitudinalNet.onnx"
@@ -193,25 +193,25 @@ class Ships:
             r, xy = self.fit_circle(added_coords)
             heading_angle = np.arcsin(self.length[ID] * (self.heading_cf[ID] - 0.5) / r)
 
-        # Calculate whether the center_point is
-        # on the right or left of the line spanned by two points of
-        # our added_coords list. This is most easily achieved using a cross product
-        if np.cross(added_coords[1] - added_coords[0], xy - added_coords[0]) > 0:
-            # Point is on the left
-            heading_angle = -heading_angle
+            # Calculate whether the center_point is
+            # on the right or left of the line spanned by two points of
+            # our added_coords list. This is most easily achieved using a cross product
+            if np.cross(added_coords[1] - added_coords[0], xy - added_coords[0]) > 0:
+                # Point is on the left
+                heading_angle = -heading_angle
         
         self.heading_angle[ID] = self.direction[ID] * heading_angle
         self.heading_box[ID] = self.create_box(ID)
         self.heading_radius_calc[ID] = added_coords
 
-    def simulate_timestep(self, ID, river, dT, water_depth, river_profile, stream_vel):
+    def simulate_timestep(self, ID: int, river, dT: float, water_depth, river_profile, stream_vel):
 
         lat_obs = self.lat_con_pol[ID].compute_obs(self,river,3)
         long_obs = self.long_con_pol[ID].compute_obs(water_depth,stream_vel,river_profile)
 
         # Longitudinal Simulation
-        long_action = self.long_nets[ID](long_obs)
-        self.power[ID] = np.maximum(0,self.max_power * long_action)
+        long_action = self.long_nets[ID](torch.tensor(long_obs, dtype=torch.float32))
+        self.power[ID] = np.maximum(0,self.max_power * long_action.detach().numpy())
 
         acc, squat, cf = self.long_con_pol[ID].compute_acc(water_depth,stream_vel,river_profile, dT)
 
@@ -224,8 +224,8 @@ class Ships:
         self.vx[ID] = new_vx
 
         # Lateral simulation
-        lat_action = self.lat_nets[ID](lat_obs)
-        self.ay[ID] = lat_action * self.lat_con_pol[ID].upper_acc_bound
+        lat_action = self.lat_nets[ID](torch.tensor(np.hstack(lat_obs),dtype=torch.float32))
+        self.ay[ID] = lat_action.detach().numpy() * self.lat_con_pol[ID].upper_acc_bound
 
         new_vy = self.vy[ID] + self.ay[ID] * dT
 
@@ -261,5 +261,7 @@ class Ships:
 
 river = River()
 ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)
-lat = policies.LatConPol(30,1)
-f = lat.compute_obs(ships, river,2)
+wd = river.get_water_depth(ships)
+rp = river.get_river_profile(ships)
+sv = river.mean_stream_vel(ships)
+ships.simulate_timestep(0,river,1.,wd,rp,sv)

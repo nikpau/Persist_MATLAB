@@ -568,9 +568,9 @@ class LonConPol:
         # This function does not consider any length of the ship whatsover. 
         # But since this is a guess anyways, it might not be that bad.
         new_y = np.round((self.ships.y_location[self.id]\
-             + self.ships.vy[self.id]/ dT) / self.river.BASEPOINT_DIST).astype(int)
+             + self.ships.vy[self.id] * dT) / self.river.BASEPOINT_DIST).astype(int)
         new_x = np.round((self.ships.x_location[self.id]\
-             + self.ships.vx[self.id]/ dT) / self.river.BASEPOINT_DIST).astype(int)
+             + self.ships.vx[self.id] * dT) / self.river.BASEPOINT_DIST).astype(int)
 
         return self.river.stream_vel[new_x,new_y]
 

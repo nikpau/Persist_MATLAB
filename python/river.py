@@ -66,18 +66,18 @@ class River:
         y_alpha = y/self.BASEPOINT_DIST + 1 - y_log
 
         # Base coordinates after utm transform
-        base_utm = self.point_coords[x_log,y_log,:]
+        base_utm = self.point_coords[x_log-1,y_log-1,:]
 
         # Difference between points in x direction
-        diff_x = self.point_coords[x_log+1,y_log,:] - base_utm
+        diff_x = self.point_coords[x_log,y_log-1,:] - base_utm
 
-        base_utm += x_alpha * diff_x
+        base_utm_f = base_utm + x_alpha * diff_x
 
         # Difference between points in y direction
-        diff_y = self.point_coords[x_log,y_log+1,:] - base_utm
+        diff_y = self.point_coords[x_log-1,y_log,:] - base_utm
 
-        x_utm = base_utm[0] + y_alpha * diff_y[0]
-        y_utm = base_utm[1] + y_alpha * diff_y[1]
+        x_utm = base_utm_f[0] + y_alpha * diff_y[0]
+        y_utm = base_utm_f[1] + y_alpha * diff_y[1]
 
         return [x_utm, y_utm]
 

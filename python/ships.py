@@ -8,9 +8,10 @@ import numpy as np
 from shapely import geometry, affinity
 import torch
 
-from river import River
 import policies
 import nets
+
+#from river import River
 
 class Ships:
 
@@ -100,7 +101,7 @@ class Ships:
         self.lat_nets = []
         self.long_nets = []
 
-        for i in range(self.num_ships):
+        for _ in range(self.num_ships):
             lat_net = nets.LateralNet(30,1)
             lat_net = nets._init_from_onnx(lat_net,lat_net_path)
             self.lat_nets.append(lat_net)
@@ -119,16 +120,17 @@ class Ships:
         w = self.width[ID]
 
         # Create Polygon with edges of the ship
-        polygon = geometry.Polygon(((-w/2,l/2),(w/2,l/2),(w/2,-l/2),(-w/2,-l/2)))
+        #polygon = geometry.Polygon(((l/2,-w/2),(l/2,w/2),(-l/2,w/2),(-l/2)))
+        polygon  = geometry.box(-l/2,-w/2,l/2,w/2)
 
         # Calculate the heading angle of the ship
-        self.heading_angle[ID] = self.heading_angle[ID] + np.arctan(self.vy[ID]/self.vx[ID]) / (2 * np.pi * 360)
+        self.heading_angle[ID] = (self.heading_angle[ID] + np.arctan(self.vy[ID]/self.vx[ID])) / (2 * np.pi * 360)
 
         # Rotate the polygon around the heading angle
         rotated_polygon = affinity.rotate(polygon, self.heading_angle[ID])
 
         # Move the unity polygon to the respective point on the river
-        box = affinity.translate(rotated_polygon, self.y_location[ID], self.x_location[ID])
+        box = affinity.translate(rotated_polygon, self.x_location[ID], self.y_location[ID])
 
         return box
 
@@ -259,9 +261,9 @@ class Ships:
         return radius, (x_center,y_center)
 
 
-river = River()
-ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)
-wd = river.get_water_depth(ships)
-rp = river.get_river_profile(ships)
-sv = river.mean_stream_vel(ships)
-ships.simulate_timestep(0,river,1.,wd,rp,sv)
+#river = River()
+#ships = Ships(river=river, num_ships=5, ship_lengths= [100]*5, ship_widths= [10]*5,ship_mass=[1e5]*5,y_location=[150]*5)
+#wd = river.get_water_depth(ships)
+#rp = river.get_river_profile(ships)
+#sv = river.mean_stream_vel(ships)
+#ships.simulate_timestep(0,river,1.,wd,rp,sv)

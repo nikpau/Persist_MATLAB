@@ -22,11 +22,15 @@ class Ships:
                 ship_widths, 
                 ship_mass,
                 y_location,
+                overtake_level,
+                direction,
                 spawn_dist = 300,
                 start_loc = 40000,
                 ) -> None:
         
         assert isinstance(num_ships,int), "Only Integers allowed"
+        
+        print("Constructing Vessels")
 
         #Set the number of ships to be spawned
         self.num_ships = num_ships
@@ -35,7 +39,7 @@ class Ships:
 
         # Define the dimensions of the ships to be spawned
         assert len(ship_widths) == len(ship_lengths) == len(ship_mass) == num_ships, \
-            "Dimensions must be specified for every ship"
+            "Properties must be specified for every ship"
 
         self.length = np.array(ship_lengths)
         self.width = np.array(ship_widths)
@@ -43,19 +47,19 @@ class Ships:
         self.mass = np.array(ship_mass)
 
         # Absolute spawn point as river x-coordinate. (e.g. 30_000)
-        self.start_location = start_loc
+        self.start_location = np.array(start_loc)
 
         # Distance between each spawned ship
-        self.spawn_dist = spawn_dist
+        self.spawn_dist = np.array(spawn_dist)
 
         # x positions for each ship
         self.x_location = self.start_location - np.linspace(0, self.num_ships * self.spawn_dist, self.num_ships)
 
         # Overtaking level per ship. (0 = no overtakling, 1 = overtaking, 2 = ??)
-        self.overtaking_level = np.zeros(self.num_ships)
+        self.overtaking_level = np.array(overtake_level)
 
         # Direction each ship travels upon spawning (1 = upstream , -1 = downstream)
-        self.direction = np.ones(self.num_ships)
+        self.direction = np.array(direction)
         
         # Y location for each ship (must be an array with one entry per ship)
         self.y_location = np.array(y_location)
@@ -91,15 +95,21 @@ class Ships:
         self.x_utm = np.zeros(self.num_ships)
         self.y_utm = np.zeros(self.num_ships) 
 
+        print("Building Polices")
+
         # Vectors for the lateral and longitudinal control policy
         self.lat_con_pol = [policies.LatConPol(ID) for ID in self.ship_id]
         self.long_con_pol = [policies.LonConPol(ID,self,river) for ID in self.ship_id]
+
+        print("Done!")
 
         lat_net_path = "python/onnx_nets/lateralNet.onnx"
         long_net_path = "python/onnx_nets/longitudinalNet.onnx"
 
         self.lat_nets = []
         self.long_nets = []
+
+        print("Initializing Networks")
 
         for _ in range(self.num_ships):
             lat_net = nets.LateralNet(30,1)
@@ -110,7 +120,7 @@ class Ships:
             long_net = nets._init_from_onnx(long_net,long_net_path)
             self.long_nets.append(long_net)
 
-        # TODO: Init control policies for each ship (Ships.m:105-108)
+        print("Vessel initialization complete.")
 
 
     # Create a Polygon for each ship
@@ -179,7 +189,6 @@ class Ships:
 
         return (indices, min_dist)
 
-    # TODO: Implement Ships.m:232
     # We compute some heading based on a cf value?
     def compute_heading_from_cf(self, ID):
 

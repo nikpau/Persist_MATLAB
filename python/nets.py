@@ -51,6 +51,7 @@ class LateralNet(nn.Module):
         return self.net(x)
 
 def _init_from_onnx(input_net, path_to_onnx):
+    
     """
     This function will assign pretrained weights from an onnx
     file to a network generated with pytorch.

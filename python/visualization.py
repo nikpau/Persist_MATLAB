@@ -18,6 +18,7 @@ class UTM_Plotter:
 
     def __init__(self, river, ships, sim_set) -> None:
         
+        print("Configuring UTM Plotter...")
 
         self.river = river
         self.ships = ships
@@ -38,9 +39,6 @@ class UTM_Plotter:
         self.ax1 = self.fig.add_subplot(gs[:, :-1])
         self.ax1.set_title('Some Map')
 
-        # TODO: Define a meshgrid for all x and y combinations in order to plot them
-        # This is never used in the sim? (Viz.m:59)
-
         # Make a contour plot with river coords as x and y, and stream velocity as z (why +10?)
         self.ax1.contourf(river.point_coords[:,:,0], river.point_coords[:,:,1],river.stream_vel + 10,
         cmap = cm.winter_r)
@@ -48,8 +46,9 @@ class UTM_Plotter:
 
         # Plot Vessels
         # xy coords are unpacked and plotted simultaneously for the utm transformed ship
+        print("Placing vessels")
         for i in range(self.ships.num_ships):
-            self.ax1.plot(*self.box_to_utm(self.ships.heading_box[i]).exterior.xy)
+            self.ax1.fill(*self.box_to_utm(self.ships.heading_box[i]).exterior.xy)
         
         # Panes for some metric to track 1
         self.ax2 = self.fig.add_subplot(gs[0, -1])
@@ -89,10 +88,12 @@ class Plotter:
     def __init__(self, river, ships, sim_set) -> None:
         
 
+        print("Configuring Plotter...")
+
         self.river = river
         self.ships = ships
 
-       # Define colors:
+        # Define colors:
         canvas_bg = "#bcb8b1"
         plot_bg = "#f4f3ee"
 
@@ -112,7 +113,7 @@ class Plotter:
         # This is never used in the sim? (Viz.m:59)
 
         # Make a contour plot with river coords as x and y, and stream velocity as z (why +10?)
-        print("Initialize mesh...")
+        print("Initialize Mesh...")
         xx,yy = np.meshgrid(np.arange(0,520,20),
         np.array([n*20+1 for n in range(len(self.river.point_coords))]))
         self.ax1.contourf(yy,xx,river.stream_vel + 10, cmap = cm.winter_r)
@@ -121,8 +122,9 @@ class Plotter:
 
         # Plot Vessels
         # xy coords are unpacked and plotted simultaneously for the utm transformed ship
+        print("Placing vessels")
         for i in range(self.ships.num_ships):
-            self.ax1.plot(*self.ships.heading_box[i].exterior.xy)
+            self.ax1.fill(*self.ships.heading_box[i].exterior.xy)
         
         # Panes for some metric to track 1
         self.ax2 = self.fig.add_subplot(gs[1, :])

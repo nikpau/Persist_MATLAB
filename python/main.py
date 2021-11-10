@@ -8,27 +8,38 @@ be set and the simulation is started
 
 from river import River
 from ships import Ships
+import visualization
 
+# Initialize River 
+river = River()
 
+# Number of vessels to spawn
 N_SHIPS = 5
 
 # Length, width, and mass of each vessel. 
-SHIP_LENGTH = [100] * N_SHIPS
-SHIP_WIDTH = [20] * N_SHIPS
-SHIP_MASS = [100E3] * N_SHIPS
-
 # Y-Location of each ship during spawn
-Y_LOCAION = [150] * N_SHIPS
+vessel_args = {
+        "river":river,
+        "num_ships": N_SHIPS,
+        "ship_lengths":[100] * N_SHIPS,
+        "ship_widths":[10] * N_SHIPS,
+        "ship_mass":[100E3] * N_SHIPS,
+        "y_location": [150] * N_SHIPS,
+        "overtake_level": [0] * N_SHIPS,
+        "direction": [1] * N_SHIPS,
+        "spawn_dist": 300,
+        "start_loc": 40_000}
+
+# Init vessel class with pre-defined args
+ships = Ships(**vessel_args)
+
 
 # Granularity of timesteps
 SIM_TIMESTEP = 1
 
 # Which vessel is followed in the visualization
-FOLLOW_VESSEL = 0
+FOLLOWED_VESSEL = 0
 
-# Initialize River and ships
-river = River()
-ships = Ships(river, N_SHIPS,SHIP_LENGTH,SHIP_WIDTH,SHIP_MASS,Y_LOCAION)
 
 def main():
     # Init simulation timesteps

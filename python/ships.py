@@ -30,7 +30,7 @@ class Ships:
         
         assert isinstance(num_ships,int), "Only Integers allowed"
         
-        print("Constructing Vessels")
+        print("Constructing Vessels...")
 
         #Set the number of ships to be spawned
         self.num_ships = num_ships
@@ -95,13 +95,11 @@ class Ships:
         self.x_utm = np.zeros(self.num_ships)
         self.y_utm = np.zeros(self.num_ships) 
 
-        print("Building Polices")
+        print("Building Polices...")
 
         # Vectors for the lateral and longitudinal control policy
         self.lat_con_pol = [policies.LatConPol(ID) for ID in self.ship_id]
         self.long_con_pol = [policies.LonConPol(ID,self,river) for ID in self.ship_id]
-
-        print("Done!")
 
         lat_net_path = "python/onnx_nets/lateralNet.onnx"
         long_net_path = "python/onnx_nets/longitudinalNet.onnx"
@@ -109,7 +107,7 @@ class Ships:
         self.lat_nets = []
         self.long_nets = []
 
-        print("Initializing Networks")
+        print("Initializing Networks...")
 
         for _ in range(self.num_ships):
             lat_net = nets.LateralNet(30,1)
@@ -120,7 +118,7 @@ class Ships:
             long_net = nets._init_from_onnx(long_net,long_net_path)
             self.long_nets.append(long_net)
 
-        print("Vessel initialization complete.")
+        print("Vessel initialization complete!")
 
 
     # Create a Polygon for each ship
@@ -193,21 +191,21 @@ class Ships:
     def compute_heading_from_cf(self, ID):
 
         current_points = self.heading_radius_calc[ID]
-        added_coords = np.c_[current_points, [self.x_utm,self.y_utm]]
+        added_coords = np.c_[current_points, [self.x_utm[ID],self.y_utm[ID]]]
 
         if current_points.all() == 0:
             heading_angle = 0.
-
+            added_coords = np.delete(added_coords,0,1)
         else:
             # Remove the first of the three points in order to achieve a rolling window
             added_coords = np.delete(added_coords,0,1)
             r, xy = self.fit_circle(added_coords)
             heading_angle = np.arcsin(self.length[ID] * (self.heading_cf[ID] - 0.5) / r)
-
+    
             # Calculate whether the center_point is
             # on the right or left of the line spanned by two points of
             # our added_coords list. This is most easily achieved using a cross product
-            if np.cross(added_coords[1] - added_coords[0], xy - added_coords[0]) > 0:
+            if np.cross(added_coords[:,1] - added_coords[:,0], xy - added_coords[:,0]) > 0:
                 # Point is on the left
                 heading_angle = -heading_angle
         
@@ -221,7 +219,7 @@ class Ships:
         long_obs = self.long_con_pol[ID].compute_obs(water_depth,stream_vel,river_profile)
 
         # Longitudinal Simulation
-        long_action = self.long_nets[ID](torch.tensor(long_obs, dtype=torch.float32))
+        long_action = self.long_nets[ID](torch.tensor(np.hstack(long_obs), dtype=torch.float32))
         self.power[ID] = np.maximum(0,self.max_power * long_action.detach().numpy())
 
         acc, squat, cf = self.long_con_pol[ID].compute_acc(water_depth,stream_vel,river_profile, dT)
@@ -231,7 +229,7 @@ class Ships:
         self.heading_cf[ID] = cf
 
         new_vx = self.vx[ID] + self.ax[ID] * dT
-        self.x_location[ID] = self.x_location[ID] + 0.5* (self.vx[ID] + new_vx)
+        self.x_location[ID] = self.x_location[ID] + 0.5 * (self.vx[ID] + new_vx)
         self.vx[ID] = new_vx
 
         # Lateral simulation
@@ -247,7 +245,7 @@ class Ships:
            new_vy = np.sign(new_vy) * np.abs(self.vx[ID] / 10)
 
         self.y_location[ID] = self.y_location[ID] + 0.5* (self.vy[ID] + new_vy) * dT
-        self.vy [ID] = new_vy
+        self.vy[ID] = new_vy
 
         # Transform coords to UTM plane
         self.x_utm[ID], self.y_utm[ID] = river.get_utm_position(self.x_location[ID],self.y_location[ID])

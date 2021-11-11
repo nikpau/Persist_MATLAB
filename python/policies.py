@@ -298,12 +298,11 @@ class LatConPol:
         # the direction of the vessel
         if dir == "upper":
             sort_ind = pos[:,0].argsort()
-            pos = pos[sort_ind] # Sort in ascending order based on the first col
-            ttc = ttc[sort_ind]
         else:
             sort_ind = pos[:,0].argsort()[::-1]
-            pos = pos[sort_ind] # Sort in descending order based on the first col
-            ttc = ttc[sort_ind]
+
+        pos = pos[sort_ind] # Sort in descending order based on the first col
+        ttc = ttc[sort_ind]
 
         to_del = np.zeros((pos.shape[0],2))
 
@@ -403,6 +402,7 @@ class LonConPol:
         # Get vertical velocity for the ship with minimal distance ahead.
         # If there is none in range, set the speed to the maximum possible value
         if not np.isinf(ahead_ID[0]):
+            ahead_ID = int(ahead_ID)
             v_ahead = self.ships.vx[ahead_ID]
             self.dist_ship_ahead = self.dist_ship_ahead - self.ships.length[self.id]/2 - self.ships.length[ahead_ID]/2
         
@@ -518,7 +518,7 @@ class LonConPol:
         dmh_dt = (mh_next - mh_prev) / TIMESTEP
 
         # Bewegungsgleichung (Motion equation)
-        new_acc = 1.0 / ((MS + MH) * (thrust - W - v_rel * dmh_dt + MH * dv_str_dt))
+        new_acc = (1.0 / (MS + MH)) * (thrust - W - v_rel * dmh_dt + MH * dv_str_dt)
         self.wid = new_acc
 
         # Calculate CF Parameter

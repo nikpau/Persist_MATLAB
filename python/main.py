@@ -35,11 +35,12 @@ ships = Ships(**vessel_args)
 
 
 # Granularity of timesteps
-SIM_TIMESTEP = 1
+SIM_TIMESTEP = 10
 
 # Which vessel is followed in the visualization
 FOLLOWED_VESSEL = 0
 
+plotter = visualization.Plotter(river,ships, FOLLOWED_VESSEL, SIM_TIMESTEP)
 
 def main():
     # Init simulation timesteps
@@ -55,3 +56,7 @@ def main():
 
         for ship in range(N_SHIPS):
             ships.simulate_timestep(ship, river,SIM_TIMESTEP,water_depth,river_profile,stream_vel)
+
+        plotter.update()
+        
+main()

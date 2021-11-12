@@ -90,8 +90,8 @@ class River:
         min_y_log = np.round((ships.y_location - ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int)
         max_y_log = np.round((ships.y_location + ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int)
 
-        min_x_log = np.round((ships.x_location - ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int) + 10
-        max_x_log = np.round((ships.x_location + ships.eff_width / 2) / self.BASEPOINT_DIST).astype(int) + 10
+        min_x_log = np.round((ships.x_location - ships.length / 2) / self.BASEPOINT_DIST).astype(int) + 10
+        max_x_log = np.round((ships.x_location + ships.length / 2) / self.BASEPOINT_DIST).astype(int) + 10
 
         # Define empty array for all mean stream velocities to be written into
         v_stream = np.zeros(len(min_y_log))

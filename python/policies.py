@@ -278,7 +278,7 @@ class LatConPol:
             self.TTC_vector_low / self.upper_ttc_bound,
             np.tanh(self.POS_vector_up / 300),
             np.tanh(self.POS_vector_low / 300)
-        ])
+        ],dtype=object)
 
         return self.obs
 
@@ -427,7 +427,7 @@ class LonConPol:
                 self.obs_stream_vel[self.id] / self.v_str_scale,
                 (self.river_profile[self.id] - self.a_mean) / self.a_scale,
                 (self.water_depth[self.id] - self.h_mean) / self.h_scale
-            ]
+            ], dtype=object
         )
         return self.obs
 
@@ -507,14 +507,15 @@ class LonConPol:
         thrust = thrust_Factor_c * (thrust_Factor_a * self.ships.power[self.id]) / \
             (self.ships.power[self.id]**(1/3) + thrust_Factor_b * v_rel)
 
-        a_next = 1000
-        a_prev = 1000
+        # River profile at the current and next timestep
+        A_next = 1000
+        A_prev = 1000
 
         # Compute acceleration
         dv_str_dt = (inferred_stream_vel - curr_stream_vel) / TIMESTEP
 
-        mh_prev = self.hydrodyn_mass(a_prev, AS, MS)
-        mh_next= self.hydrodyn_mass(a_next, AS, MS)
+        mh_prev = self.hydrodyn_mass(A_prev, AS, MS)
+        mh_next= self.hydrodyn_mass(A_next, AS, MS)
         dmh_dt = (mh_next - mh_prev) / TIMESTEP
 
         # Bewegungsgleichung (Motion equation)

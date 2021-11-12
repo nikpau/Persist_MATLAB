@@ -62,7 +62,7 @@ class Ships:
         self.direction = np.array(direction)
         
         # Y location for each ship (must be an array with one entry per ship)
-        self.y_location = np.array(y_location)
+        self.y_location = np.array(y_location,dtype=np.float32)
 
         # Velocity in x and y direction
         self.vx = 3 * self.direction
@@ -193,7 +193,8 @@ class Ships:
         current_points = self.heading_radius_calc[ID]
         added_coords = np.c_[current_points, [self.x_utm[ID],self.y_utm[ID]]]
 
-        if current_points.all() == 0:
+        #if current_points.all() == 0:
+        if True:
             heading_angle = 0.
             added_coords = np.delete(added_coords,0,1)
         else:
@@ -229,7 +230,8 @@ class Ships:
         self.heading_cf[ID] = cf
 
         new_vx = self.vx[ID] + self.ax[ID] * dT
-        self.x_location[ID] = self.x_location[ID] + 0.5 * (self.vx[ID] + new_vx)
+        new_x_location = self.x_location[ID] + 0.5 * (self.vx[ID] + new_vx) * dT
+        self.x_location[ID] = new_x_location
         self.vx[ID] = new_vx
 
         # Lateral simulation
@@ -244,7 +246,8 @@ class Ships:
         if np.abs(new_vy) > np.abs(self.vx[ID] / 10):
            new_vy = np.sign(new_vy) * np.abs(self.vx[ID] / 10)
 
-        self.y_location[ID] = self.y_location[ID] + 0.5* (self.vy[ID] + new_vy) * dT
+        new_y_location = self.y_location[ID] + 0.5* (self.vy[ID] + new_vy) * dT
+        self.y_location[ID] = new_y_location
         self.vy[ID] = new_vy
 
         # Transform coords to UTM plane
@@ -257,13 +260,20 @@ class Ships:
     @staticmethod
     def fit_circle(points: np.array):
 
-        x = points[0,:]
-        y = points[1,:]
+        y = points[0,:]
+        x = points[1,:]
 
-        x_center = (x[0]**2 - x[1]**2 + y[0]**2 - y[1]**2) / 2*(x[0] - x[1])
-        y_center = (y[0]**2 - y[2]**2 + x[0]**2 - x[2]**2) / 2*(y[0] - y[2])
 
-        radius = np.sqrt((x[0] - x_center)**2 + (y[0] - y_center)**2)
+        A = x[0]*(y[1]-y[2]) - y[0]*(x[1]-x[2]) + (x[1]*y[2]) - (x[2]*y[1])
+        B = (x[0]**2 + y[0]**2) * (y[2]-y[1]) + (x[1]**2 + y[1]**2) * (y[0]-y[2]) + (x[2]**2 + y[2]**2)*(y[1]-y[0])
+        C = (x[0]**2 + y[0]**2) * (x[1]-x[2]) + (x[1]**2 + y[1]**2) * (x[2]-x[0]) + (x[2]**2 + y[2]**2)*(x[0]-x[1])
+        D = (x[0]**2 + y[0]**2) * (x[2]*y[1]- x[1]*y[2]) +\
+             (x[1]**2 + y[1]**2) * (x[0]*y[2]-x[2]*y[0]) + (x[2]**2 + y[2]**2)*(x[1]*y[0]-x[0]*y[1])
+
+        x_center = -(B/(2*A))
+        y_center = -(C/(2*A))
+
+        radius = np.sqrt((B**2 + C**2 - 4*A*D)/(4*A**2))
 
         return radius, (x_center,y_center)
 

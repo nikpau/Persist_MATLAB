@@ -193,22 +193,26 @@ class Ships:
         current_points = self.heading_radius_calc[ID]
         added_coords = np.c_[current_points, [self.x_utm[ID],self.y_utm[ID]]]
 
-        #if current_points.all() == 0:
-        if True:
+        if current_points.all() == 0:
             heading_angle = 0.
             added_coords = np.delete(added_coords,0,1)
         else:
             # Remove the first of the three points in order to achieve a rolling window
             added_coords = np.delete(added_coords,0,1)
             r, xy = self.fit_circle(added_coords)
-            heading_angle = np.arcsin(self.length[ID] * (self.heading_cf[ID] - 0.5) / r)
-    
-            # Calculate whether the center_point is
-            # on the right or left of the line spanned by two points of
-            # our added_coords list. This is most easily achieved using a cross product
-            if np.cross(added_coords[:,1] - added_coords[:,0], xy - added_coords[:,0]) > 0:
-                # Point is on the left
-                heading_angle = -heading_angle
+
+            # Check if r = nan. For some reason in python nan != nan returns True
+            if r != r:
+                heading_angle = 0.
+            else:
+                heading_angle = np.arcsin(self.length[ID] * (self.heading_cf[ID] - 0.5) / r)
+
+                # Calculate whether the center_point is
+                # on the right or left of the line spanned by two points of
+                # our added_coords list. This is most easily achieved using a cross product
+                if np.cross(added_coords[:,1] - added_coords[:,0], xy - added_coords[:,0]) > 0:
+                    # Point is on the left
+                    heading_angle = -heading_angle
         
         self.heading_angle[ID] = self.direction[ID] * heading_angle
         self.heading_box[ID] = self.create_box(ID)
@@ -216,6 +220,7 @@ class Ships:
 
     def simulate_timestep(self, ID: int, river, dT: float, water_depth, river_profile, stream_vel):
 
+        # Generate observations
         lat_obs = self.lat_con_pol[ID].compute_obs(self,river,3)
         long_obs = self.long_con_pol[ID].compute_obs(water_depth,stream_vel,river_profile)
 
@@ -223,6 +228,7 @@ class Ships:
         long_action = self.long_nets[ID](torch.tensor(np.hstack(long_obs), dtype=torch.float32))
         self.power[ID] = np.maximum(0,self.max_power * long_action.detach().numpy())
 
+        # Calculate lateral accerlation, squat and cf value
         acc, squat, cf = self.long_con_pol[ID].compute_acc(water_depth,stream_vel,river_profile, dT)
 
         self.ax[ID] = self.direction[ID] * acc
@@ -240,9 +246,11 @@ class Ships:
 
         new_vy = self.vy[ID] + self.ay[ID] * dT
 
+        # Clip lateral speed to
         if np.abs(new_vy) > self.lat_con_pol[ID].upper_speed_bound:
             new_vy = np.sign(new_vy) * self.lat_con_pol[ID].upper_speed_bound
         
+        # Clip lateral speed to 0.1 * vx
         if np.abs(new_vy) > np.abs(self.vx[ID] / 10):
            new_vy = np.sign(new_vy) * np.abs(self.vx[ID] / 10)
 

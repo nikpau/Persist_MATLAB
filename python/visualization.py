@@ -69,21 +69,27 @@ class UTM_Plotter:
 
         self.ax1.set_xlim(x_utm -500, x_utm + 500)
         self.ax1.set_ylim(y_utm -500, y_utm + 500)
-        
+
+        # Base points from the lateral policy
+        self.basep_l, self.basep_u = self.ax1.plot([],[], color = "r", marker = "o")[0], self.ax1.plot([],[], color = "r", marker = "o")[0]
+
         # Panes for some metric to track 1
         self.ax2 = self.fig.add_subplot(gs[0, -1])
         self.ax2.set_title('Metric 1')
         self.ax2.set_facecolor(self.plot_bg)
+        self.metric_1, = self.ax2.plot([],[])
         
         # Panes for some metric to track 2
         self.ax3 = self.fig.add_subplot(gs[1, -1])
         self.ax3.set_title('Metric 2')
         self.ax3.set_facecolor(self.plot_bg)
+        self.metric_2, = self.ax3.plot([],[])
         
         # Panes for some metric to track 3
         self.ax4 = self.fig.add_subplot(gs[2, -1])
         self.ax4.set_title('Metric 3')
         self.ax4.set_facecolor(self.plot_bg)
+        self.metric_3, = self.ax3.plot([],[])
 
         self.fig.subplots_adjust(right = 0.98, left= 0.04, top= 0.96, bottom = 0.04)
 
@@ -102,8 +108,16 @@ class UTM_Plotter:
         x_utm, y_utm = self.river.get_utm_position(self.ships.x_location[self.followed_vessel],
                                                     self.ships.y_location[self.followed_vessel])
 
-        self.ax1.set_xlim(x_utm -500, x_utm + 500)
-        self.ax1.set_ylim(y_utm -500, y_utm + 500)
+        self.ax1.set_xlim(x_utm -1000, x_utm + 1000)
+        self.ax1.set_ylim(y_utm -1000, y_utm + 1000)
+
+         # Plot the base points that are outputted by the lateral policy
+        utm_points_lower, utm_points_upper = self.generate_utm_basepoints(self.ships.lat_con_pol[self.followed_vessel].base_points_upper,
+                                                        self.ships.lat_con_pol[self.followed_vessel].base_points_lower)
+        
+        self.ax1.plot(*utm_points_lower,color= "r",marker = "o")
+        self.ax1.plot(*utm_points_upper,color= "r",marker="o")
+
         plt.pause(.001)
 
 
@@ -120,6 +134,25 @@ class UTM_Plotter:
         new_polygon = geometry.Polygon([*zip(new_x,new_y)])
 
         return new_polygon
+
+    def generate_utm_basepoints(self,upper_bp,lower_bp):
+
+        utm_points_lower = np.tile(np.zeros(len(upper_bp)), (2,1))
+        utm_points_upper = np.tile(np.zeros(len(upper_bp)), (2,1))
+
+        for i in range(len(self.ships.lat_con_pol[0].base_points_lower)):
+
+            x_upper = self.ships.lat_con_pol[self.followed_vessel].base_points_upper[i][0]
+            y_upper = self.ships.lat_con_pol[self.followed_vessel].base_points_upper[i][1]
+
+            x_lower = self.ships.lat_con_pol[self.followed_vessel].base_points_lower[i][0]
+            y_lower = self.ships.lat_con_pol[self.followed_vessel].base_points_lower[i][1]
+
+            utm_points_lower[:,i] = self.river.get_utm_position(x_lower,y_lower)
+            utm_points_upper[:,i] = self.river.get_utm_position(x_upper,y_upper)
+
+        
+        return utm_points_lower, utm_points_upper
 
 
 class Plotter:
@@ -168,21 +201,26 @@ class Plotter:
         # Set x limits to center around the selected vessel
         self.ax1.set_xlim(self.ships.x_location[followed_vessel] -2000,
                         self.ships.x_location[followed_vessel]+2000)
+
+        self.basep_l, self.basep_u = self.ax1.plot([],[],marker="o",color="r")[0], self.ax1.plot([],[],marker="o",color="r")[0]
         
         # Panes for some metric to track 1
         self.ax2 = self.fig.add_subplot(gs[1, :])
         self.ax2.set_title('Metric 1')
         self.ax2.set_facecolor(self.plot_bg)
+        self.metric_1 = self.ax2.plot([],[])
         
         # Panes for some metric to track 2
         self.ax3 = self.fig.add_subplot(gs[2, :])
         self.ax3.set_title('Metric 2')
         self.ax3.set_facecolor(self.plot_bg)
+        self.metric_2 = self.ax3.plot([],[])
         
         # Panes for some metric to track 3
         self.ax4 = self.fig.add_subplot(gs[3,:])
         self.ax4.set_title('Metric 3')
         self.ax4.set_facecolor(self.plot_bg)
+        self.metric_3 = self.ax4.plot([],[])
 
         # Adjust horizontal spacing between plots
         self.fig.subplots_adjust(hspace=0.25, right = 0.98, left=0.04, bottom = 0.04, top=0.96)

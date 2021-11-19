@@ -3,17 +3,18 @@ This is the main function for the simulator. In here the important hyperparamete
 be set and the simulation is started
 
 """
+import matplotlib.animation as ani
+import matplotlib.pyplot as plt
+import visualization
+import numpy as np
+from ships import Ships
+from river import River
+
 
 # HYPERPARAMETERS
 
 # Use Debugging
-import matplotlib.animation as ani
-import matplotlib.pyplot as plt
-import visualization
-from ships import Ships
-from river import River
 DEBUG = 0
-
 
 # Initialize River
 river = River()
@@ -33,7 +34,7 @@ vessel_args = {
     "ship_mass": [100E3] * N_SHIPS,
     "y_location": [150] * N_SHIPS,
     "overtake_level": [0] * N_SHIPS,
-    "direction": [1] * N_SHIPS,
+    "direction": [-1] * N_SHIPS,
     "spawn_dist": 300,
     "start_loc": 40_000}
 
@@ -65,12 +66,14 @@ def _update(i):
     for ship in range(N_SHIPS):
         ships.simulate_timestep(ship, river, SIM_TIMESTEP,
                                 water_depth, river_profile, stream_vel)
-
+    
+    # Animation in UTM Coordinates
     if COORD_TYPE == "UTM":
 
         for idx, ship in enumerate(plotter.vessel_obj):
             ship.set_xy(
-                list(zip(*plotter.box_to_utm(ships.heading_box[idx]).exterior.xy)))
+                list(zip(*plotter.box_to_utm(ships.heading_box[idx]).exterior.xy))
+                )
 
         x_utm, y_utm = river.get_utm_position(ships.x_location[plotter.followed_vessel],
                                               ships.y_location[plotter.followed_vessel])
@@ -78,6 +81,16 @@ def _update(i):
         plotter.ax1.set_xlim(x_utm - 1000, x_utm + 1000)
         plotter.ax1.set_ylim(y_utm - 1000, y_utm + 1000)
 
+        # Plot the base points that are outputted by the lateral policy
+        utm_points_lower, utm_points_upper = plotter.generate_utm_basepoints(
+            ships.lat_con_pol[FOLLOWED_VESSEL].base_points_upper,
+            ships.lat_con_pol[FOLLOWED_VESSEL].base_points_lower
+            )
+        
+        plotter.basep_l.set_data(*utm_points_lower)
+        plotter.basep_u.set_data(*utm_points_upper)
+
+    # Animation in base cooridnates
     else:
         for idx, ship in enumerate(plotter.vessel_obj):
             ship.set_xy(list(zip(*ships.heading_box[idx].exterior.xy)))
@@ -85,13 +98,12 @@ def _update(i):
         plotter.ax1.set_xlim(ships.x_location[plotter.followed_vessel] - 1000,
                              ships.x_location[plotter.followed_vessel]+1000)
 
-    return plotter.vessel_obj
+    return plotter.vessel_obj, plotter.basep_l, plotter.basep_u
 
 # This function uses a naive animation plot, however debugging is much easier
 # while using it.
-
-
 def _debug():
+    timestep = 0
     while True:
         water_depth = river.get_water_depth(ships)
         stream_vel = river.mean_stream_vel(ships)
@@ -99,7 +111,10 @@ def _debug():
         for ship in range(N_SHIPS):
             ships.simulate_timestep(
                 ship, river, SIM_TIMESTEP, water_depth, river_profile, stream_vel)
-        plotter.update()
+        
+        timestep +=1
+        print(timestep)
+        # plotter.update()
 
 
 if __name__ == "__main__":
@@ -108,5 +123,5 @@ if __name__ == "__main__":
         _debug()
     else:
         simul = ani.FuncAnimation(
-            plotter.fig, _update, blit=False, frames=200, interval=40)
+            plotter.fig, _update, blit=False, frames=200, interval=40, repeat=200)
         plt.show()

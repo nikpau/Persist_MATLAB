@@ -5,7 +5,7 @@ In here, the lateral and longitudinal contol policies are definied
 """
 
 import numpy as np
-
+import numba as njit
 class LatConPol:
 
     def __init__(self, ID) -> None:
@@ -23,7 +23,7 @@ class LatConPol:
 
         # Number of breakpoints the lookahead distance gets divided into
         self.n_breakpoints = 7
-
+        
     def compute_obs(self, ships, river, ships_to_consider):
 
         ships_to_consider += 1 # Python has open intervals
